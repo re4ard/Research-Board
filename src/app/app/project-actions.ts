@@ -29,25 +29,72 @@ export async function createProject(formData: FormData) {
 
   await ensureProfile(supabase, user);
 
-  const { data: project, error } = await supabase
-    .from("projects")
-    .insert({
-      name,
-      description,
-      owner_id: user.id
-    })
-    .select("id")
-    .single();
+  const { data: projectId, error } = await supabase.rpc(
+    "create_project_with_owner",
+    {
+      project_name: name,
+      project_description: description
+    }
+  );
 
-  if (error || !project) {
+  if (error || !projectId) {
     redirect(`/app?error=${encodeURIComponent(error?.message ?? "Unable to create project")}`);
   }
 
-  await supabase.from("project_members").insert({
-    project_id: project.id,
-    user_id: user.id,
-    role: "owner"
-  });
+  redirect(`/app/projects/${projectId}`);
+}
 
-  redirect(`/app/projects/${project.id}`);
+export async function updateAccountName(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  const supabase = await createClient();
+
+  if (!supabase) {
+    redirect("/app?demo=1");
+  }
+
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(`/?next=${encodeURIComponent("/app")}`);
+  }
+
+  if (!name) {
+    redirect("/app?error=Name%20is%20required");
+  }
+
+  await supabase
+    .from("profiles")
+    .update({
+      name
+    })
+    .eq("id", user.id);
+
+  redirect("/app");
+}
+
+export async function deleteAccount() {
+  const supabase = await createClient();
+
+  if (!supabase) {
+    redirect("/");
+  }
+
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/");
+  }
+
+  const { error } = await supabase.rpc("delete_current_user");
+
+  if (error) {
+    redirect(`/app?error=${encodeURIComponent(error.message)}`);
+  }
+
+  await supabase.auth.signOut();
+  redirect("/");
 }

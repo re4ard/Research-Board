@@ -39,8 +39,14 @@ export default async function AppHome({
     redirect(`/?next=${encodeURIComponent("/app")}`);
   }
 
-  await ensureProfile(supabase, user);
+  const currentUser = await ensureProfile(supabase, user);
   const projects = await listProjectsForUser(supabase);
 
-  return <ProjectDashboard error={params.error} projects={projects} />;
+  return (
+    <ProjectDashboard
+      error={params.error}
+      profile={currentUser}
+      projects={projects}
+    />
+  );
 }

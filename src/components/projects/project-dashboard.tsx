@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, FolderKanban, LogOut } from "lucide-react";
+import { ArrowRight, FolderKanban } from "lucide-react";
 
-import { signOut } from "@/app/auth/actions";
+import { AccountMenu } from "@/components/account-menu";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import type { Profile } from "@/lib/types";
 
 export type ProjectListItem = {
   id: string;
@@ -14,10 +15,12 @@ export type ProjectListItem = {
 
 export function ProjectDashboard({
   projects,
-  error
+  error,
+  profile
 }: {
   projects: ProjectListItem[];
   error?: string;
+  profile: Profile;
 }) {
   return (
     <main className="min-h-screen bg-paper px-5 py-6 text-ink dark:bg-[#181816] dark:text-paper">
@@ -31,11 +34,7 @@ export function ProjectDashboard({
           </div>
           <div className="flex gap-2">
             <CreateProjectDialog />
-            <form action={signOut}>
-              <button className="grid size-10 place-items-center rounded-md border border-black/10 bg-white text-black/55 hover:bg-black hover:text-white dark:border-white/10 dark:bg-white/[0.07] dark:text-white/55 dark:hover:bg-white dark:hover:text-ink">
-                <LogOut size={17} />
-              </button>
-            </form>
+            <AccountMenu profile={profile} />
           </div>
         </header>
 

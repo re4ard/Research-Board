@@ -8,7 +8,6 @@ import {
   Grid2X2,
   KanbanSquare,
   Link2,
-  LogOut,
   Menu,
   Moon,
   Plus,
@@ -21,7 +20,7 @@ import {
 
 import { Avatar } from "@/components/avatar";
 import { BookmarkCard } from "@/components/bookmark-card";
-import { signOut } from "@/app/auth/actions";
+import { AccountMenu } from "@/components/account-menu";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -532,14 +531,7 @@ export function ResearchWorkspace({
                   Invite
                 </button>
                 <CreateProjectDialog />
-                <form action={signOut} className="hidden sm:block">
-                  <button
-                    aria-label="Sign out"
-                    className="grid size-9 place-items-center rounded-md border border-black/10 bg-white text-black/55 hover:bg-black hover:text-white dark:border-white/10 dark:bg-white/[0.07] dark:text-white/55 dark:hover:bg-white dark:hover:text-ink"
-                  >
-                    <LogOut size={16} />
-                  </button>
-                </form>
+                <AccountMenu profile={currentUser} />
                 <button
                   aria-label="Toggle color theme"
                   className="grid size-9 place-items-center rounded-md border border-black/10 bg-white hover:bg-black hover:text-white dark:border-white/10 dark:bg-white/[0.07] dark:hover:bg-white dark:hover:text-ink"
