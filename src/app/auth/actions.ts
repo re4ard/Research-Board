@@ -13,11 +13,10 @@ function normalizeNext(value: FormDataEntryValue | null) {
 
 async function appOrigin() {
   const headerStore = await headers();
-  return (
-    headerStore.get("origin") ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://127.0.0.1:3000"
-  );
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const origin = configuredUrl || headerStore.get("origin") || "http://localhost:3000";
+
+  return new URL(origin).origin;
 }
 
 export async function signInWithGoogle(formData: FormData) {
@@ -29,10 +28,13 @@ export async function signInWithGoogle(formData: FormData) {
   }
 
   const origin = await appOrigin();
+  const redirectUrl = new URL("/auth/callback", origin);
+  redirectUrl.searchParams.set("next", next);
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`
+      redirectTo: redirectUrl.toString()
     }
   });
 

@@ -57,6 +57,30 @@ http://localhost:3000/auth/callback
 
 Invite links preserve sign-in state by sending users to Google with `next=/join/[inviteSlug]`; after `/auth/callback`, the app returns them to the invite route and adds them to the project.
 
+## Google sign-in troubleshooting
+
+If Supabase returns `{"error":"requested path is invalid"}`, the `redirect_to` URL is not allowlisted in Supabase Auth.
+
+For local development with the default `.env.local`, add this in Supabase:
+
+```text
+http://localhost:3000/auth/callback
+```
+
+Then open the app at:
+
+```text
+http://localhost:3000
+```
+
+For production, set `NEXT_PUBLIC_APP_URL` to the deployed URL and add:
+
+```text
+https://your-domain.com/auth/callback
+```
+
+Do not mix `localhost` and `127.0.0.1` unless both callback URLs are allowlisted.
+
 ## Production notes
 
 - Add email delivery for project invites.
