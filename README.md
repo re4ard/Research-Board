@@ -30,6 +30,13 @@ The UI works with bundled demo data if Supabase environment variables are not se
 6. Add `http://localhost:3000/auth/callback` and your deployed `/auth/callback` URL to the Google OAuth redirect URIs.
 7. Restart the dev server.
 
+If you already created the database before the latest project settings/account updates, run these migration files in order from the Supabase SQL editor:
+
+```text
+supabase/migrations/202607010151_project_account_rpcs.sql
+supabase/migrations/202607010230_project_settings_rpcs.sql
+```
+
 ## Real deployment checklist
 
 1. Push the app to GitHub.

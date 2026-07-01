@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Avatar } from "@/components/avatar";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import {
   STATUSES,
   type ArticleStatus,
@@ -39,18 +40,18 @@ export function BookmarkCard({
   compact?: boolean;
   onStatusChange: (id: string, status: ArticleStatus) => void;
   onResearchNotesChange: (id: string, researchNotes: ResearchNotes) => void;
-  onCommentAdd: (id: string, body: string) => void;
+  onCommentAdd: (id: string, body: string) => Promise<void> | void;
 }) {
   const status = STATUSES.find((item) => item.value === bookmark.status);
   const researchNotes = bookmark.researchNotes;
 
-  function handleComment(event: FormEvent<HTMLFormElement>) {
+  async function handleComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
     const body = String(formData.get("comment") ?? "").trim();
     if (!body) return;
-    onCommentAdd(bookmark.id, body);
+    await onCommentAdd(bookmark.id, body);
     form.reset();
   }
 
@@ -152,23 +153,16 @@ export function BookmarkCard({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Article status"
-            className={cn(
-              "h-8 rounded-md border px-2 text-xs font-medium outline-none transition focus:ring-2 focus:ring-sage/30",
-              statusClassNames[bookmark.status]
-            )}
+          <DropdownSelect
+            ariaLabel="Article status"
+            buttonClassName={cn("h-8 min-w-32 px-2 text-xs", statusClassNames[bookmark.status])}
+            options={STATUSES.map((item) => ({
+              value: item.value,
+              label: item.label
+            }))}
             value={bookmark.status}
-            onChange={(event) =>
-              onStatusChange(bookmark.id, event.target.value as ArticleStatus)
-            }
-          >
-            {STATUSES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => onStatusChange(bookmark.id, value)}
+          />
           {bookmark.tags.map((tag) => (
             <span
               className="rounded-md border border-black/10 px-2 py-1 text-xs font-medium text-black/60 dark:border-white/10 dark:text-white/60"

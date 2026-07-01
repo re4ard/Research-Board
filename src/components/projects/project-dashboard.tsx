@@ -28,7 +28,7 @@ export function ProjectDashboard({
         <header className="flex flex-col gap-4 border-b border-black/10 pb-5 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-black/45 dark:text-white/45">
-              Workspace
+              Signed in
             </p>
             <h1 className="mt-1 text-3xl font-semibold">Projects</h1>
           </div>

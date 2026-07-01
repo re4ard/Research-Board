@@ -22,6 +22,8 @@ import { Avatar } from "@/components/avatar";
 import { BookmarkCard } from "@/components/bookmark-card";
 import { AccountMenu } from "@/components/account-menu";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { ProjectSettingsDialog } from "@/components/projects/project-settings-dialog";
+import { DropdownSelect } from "@/components/ui/dropdown-select";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   STATUSES,
@@ -114,6 +116,7 @@ export function ResearchWorkspace({
   const [memberFilter, setMemberFilter] = useState("all");
   const [view, setView] = useState<ViewMode>("gallery");
   const [darkMode, setDarkMode] = useState(false);
+  const [themeReady, setThemeReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -124,12 +127,28 @@ export function ResearchWorkspace({
   );
   const [isPending, startTransition] = useTransition();
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const noteSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const project = { ...initialProject, bookmarks };
   const inviteUrl = `${appUrl.replace(/\/$/, "")}/join/${project.inviteSlug}`;
 
   useEffect(() => {
+    const storedTheme = window.localStorage.getItem("workspace-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setDarkMode(storedTheme ? storedTheme === "dark" : prefersDark);
+    setThemeReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!themeReady) return;
     document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+    window.localStorage.setItem("workspace-theme", darkMode ? "dark" : "light");
+  }, [darkMode, themeReady]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(noteSaveTimers.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   useEffect(() => {
     const channel = new BroadcastChannel(`research-board:${project.id}`);
@@ -339,44 +358,93 @@ export function ResearchWorkspace({
       )
     );
 
-    void createClient()
-      ?.from("bookmarks")
-      .update({
-        summary: researchNotes.summary,
-        main_idea: researchNotes.mainIdea,
-        facts: researchNotes.facts,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
+    const supabase = createClient();
+    if (!supabase) return;
+
+    if (noteSaveTimers.current[id]) {
+      clearTimeout(noteSaveTimers.current[id]);
+    }
+
+    noteSaveTimers.current[id] = setTimeout(async () => {
+      const { error } = await supabase
+        .from("bookmarks")
+        .update({
+          summary: researchNotes.summary,
+          main_idea: researchNotes.mainIdea,
+          facts: researchNotes.facts,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+      if (error) {
+        setError(error.message);
+      }
+    }, 450);
   }
 
-  function addComment(id: string, body: string) {
-    publish(
-      bookmarks.map((bookmark) =>
+  async function addComment(id: string, body: string) {
+    const temporaryId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    const optimistic = bookmarks.map((bookmark) =>
         bookmark.id === id
           ? {
               ...bookmark,
-              updatedAt: new Date().toISOString(),
+              updatedAt: createdAt,
               comments: [
                 ...bookmark.comments,
                 {
-                  id: crypto.randomUUID(),
+                  id: temporaryId,
                   bookmarkId: id,
                   user: currentUser,
                   body,
-                  createdAt: new Date().toISOString()
+                  createdAt
                 }
               ]
             }
           : bookmark
-      )
-    );
+      );
 
-    void createClient()?.from("bookmark_comments").insert({
-      bookmark_id: id,
-      user_id: currentUser.id,
-      body
-    });
+    publish(optimistic);
+
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const { data, error } = await supabase
+      .from("bookmark_comments")
+      .insert({
+        bookmark_id: id,
+        user_id: currentUser.id,
+        body
+      })
+      .select("id, created_at")
+      .single();
+
+    if (error) {
+      setError(error.message);
+      publish(bookmarks);
+      return;
+    }
+
+    if (data) {
+      publish(
+        optimistic.map((bookmark) =>
+          bookmark.id === id
+            ? {
+                ...bookmark,
+                comments: bookmark.comments.map((comment) =>
+                  comment.id === temporaryId
+                    ? {
+                        ...comment,
+                        id: data.id,
+                        createdAt: data.created_at
+                      }
+                    : comment
+                )
+              }
+            : bookmark
+        )
+      );
+    }
   }
 
   async function copyInvite() {
@@ -395,17 +463,7 @@ export function ResearchWorkspace({
           )}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="grid size-9 place-items-center rounded-lg bg-ink text-white dark:bg-paper dark:text-ink">
-                <Link2 size={18} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Workspace</p>
-                <p className="text-xs text-black/50 dark:text-white/50">
-                  {syncLabel}
-                </p>
-              </div>
-            </div>
+            <ProjectSettingsDialog project={project} />
             <button
               aria-label="Close sidebar"
               className="grid size-8 place-items-center rounded-md border border-black/10 lg:hidden dark:border-white/10"
@@ -583,41 +641,37 @@ export function ResearchWorkspace({
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row">
-                <label className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 shadow-sm dark:border-white/10 dark:bg-white/[0.07]">
+                <label className="hidden items-center gap-2 rounded-lg border border-black/10 bg-white px-3 shadow-sm dark:border-white/10 dark:bg-white/[0.07] sm:flex">
                   <SlidersHorizontal size={16} className="text-black/45 dark:text-white/45" />
-                  <select
-                    aria-label="Filter by status"
-                    className="h-11 bg-transparent text-sm outline-none"
-                    value={statusFilter}
-                    onChange={(event) =>
-                      setStatusFilter(event.target.value as ArticleStatus | "all")
-                    }
-                  >
-                    <option value="all">All statuses</option>
-                    {STATUSES.map((status) => (
-                      <option key={status.value} value={status.value}>
-                        {status.label}
-                      </option>
-                    ))}
-                  </select>
                 </label>
+                <DropdownSelect
+                  ariaLabel="Filter by status"
+                  options={[
+                    { value: "all", label: "All statuses" },
+                    ...STATUSES.map((status) => ({
+                      value: status.value,
+                      label: status.label
+                    }))
+                  ]}
+                  value={statusFilter}
+                  onChange={(value) => setStatusFilter(value as ArticleStatus | "all")}
+                />
 
-                <label className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 shadow-sm dark:border-white/10 dark:bg-white/[0.07]">
+                <label className="hidden items-center gap-2 rounded-lg border border-black/10 bg-white px-3 shadow-sm dark:border-white/10 dark:bg-white/[0.07] sm:flex">
                   <Users size={16} className="text-black/45 dark:text-white/45" />
-                  <select
-                    aria-label="Filter by contributor"
-                    className="h-11 bg-transparent text-sm outline-none"
-                    value={memberFilter}
-                    onChange={(event) => setMemberFilter(event.target.value)}
-                  >
-                    <option value="all">All people</option>
-                    {project.members.map((member) => (
-                      <option key={member.profile.id} value={member.profile.id}>
-                        {member.profile.name}
-                      </option>
-                    ))}
-                  </select>
                 </label>
+                <DropdownSelect
+                  ariaLabel="Filter by contributor"
+                  options={[
+                    { value: "all", label: "All people" },
+                    ...project.members.map((member) => ({
+                      value: member.profile.id,
+                      label: member.profile.name
+                    }))
+                  ]}
+                  value={memberFilter}
+                  onChange={setMemberFilter}
+                />
 
                 <div className="grid h-11 grid-cols-2 rounded-lg border border-black/10 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/[0.07]">
                   <button
